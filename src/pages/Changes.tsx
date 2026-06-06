@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Card,
   Table,
@@ -16,10 +17,10 @@ import {
   Select,
   Input,
   Form,
+  DatePicker,
   Popconfirm,
+  Badge,
 } from 'antd';
-
-const { TextArea } = Input;
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -29,18 +30,69 @@ import {
   PlusOutlined,
   QuestionCircleOutlined,
   UserOutlined,
+  BellOutlined,
+  WarningOutlined,
+  FieldTimeOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useApiStore } from '@/store/apiStore';
 import { useUserStore } from '@/store/userStore';
-import { ChangeRecord, ConfirmationStatus, ReviewStatus } from '@/types';
+import { ChangeRecord, ConfirmationStatus, ReviewStatus, TimelineItemType } from '@/types';
 import { formatDate, getReviewStatusText, getReviewStatusColor, getConfirmationStatusText, getConfirmationStatusColor } from '@/utils/helpers';
 
 const { Option } = Select;
+const { RangePicker } = DatePicker;
+const { TextArea } = Input;
+
+const getTimelineIcon = (type: TimelineItemType) => {
+  switch (type) {
+    case 'submit':
+      return <PlusOutlined style={{ color: '#1890ff' }} />;
+    case 'reviewer_assign':
+    case 'confirmation_assign':
+      return <UserOutlined style={{ color: '#722ed1' }} />;
+    case 'confirm':
+      return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
+    case 'question':
+      return <QuestionCircleOutlined style={{ color: '#faad14' }} />;
+    case 'approve':
+      return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
+    case 'reject':
+      return <CloseCircleOutlined style={{ color: '#f5222d' }} />;
+    case 'reminder':
+      return <BellOutlined style={{ color: '#faad14' }} />;
+    default:
+      return <ClockCircleOutlined />;
+  }
+};
+
+const getTimelineColor = (type: TimelineItemType) => {
+  switch (type) {
+    case 'submit':
+      return 'blue';
+    case 'reviewer_assign':
+    case 'confirmation_assign':
+      return 'purple';
+    case 'confirm':
+    case 'approve':
+      return 'green';
+    case 'question':
+      return 'gold';
+    case 'reject':
+      return 'red';
+    case 'reminder':
+      return 'gold';
+    default:
+      return 'gray';
+  }
+};
 
 const Changes = () => {
-  const { changeRecords, apis, reviewChange, updateConfirmationStatus, addChangeRecord } = useApiStore();
+  const { changeRecords, apis, reviewChange, updateConfirmationStatus, addChangeRecord, sendReminder } = useApiStore();
   const { getMemberById, getMemberName, members, currentUser } = useUserStore();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
   const [detailVisible, setDetailVisible] = useState(false);
   const [createVisible, setCreateVisible] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<ChangeRecord | null>(null);
@@ -49,11 +101,29 @@ const Changes = () => {
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [confirmComment, setConfirmComment] = useState('');
   const [confirmationId, setConfirmationId] = useState('');
+  const [highlightChangeId, setHighlightChangeId] = useState<string | null>(null);
   const [form] = Form.useForm();
+  const tableRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const changeId = params.get('changeId');
+    if (changeId) {
+      setHighlightChangeId(changeId);
+      const record = changeRecords.find((r) => r.id === changeId);
+      if (record) {
+        setTimeout(() => {
+          setSelectedRecord(record);
+          setDetailVisible(true);
+        }, 300);
+      }
+    }
+  }, [location.search, changeRecords]);
 
   const handleView = (record: ChangeRecord) => {
     setSelectedRecord(record);
     setDetailVisible(true);
+    setHighlightChangeId(null);
   };
 
   const handleApprove = (record: ChangeRecord) => {
@@ -72,7 +142,6 @@ const Changes = () => {
     setReviewModalVisible(false);
     setReviewNote('');
     message.success(status === 'approved' ? '已通过评审' : '已驳回评审');
-    // 刷新详情
     const updated = changeRecords.find((r) => r.id === selectedRecord.id);
     if (updated) setSelectedRecord(updated);
   };
@@ -89,7 +158,6 @@ const Changes = () => {
     setConfirmModalVisible(false);
     setConfirmComment('');
     message.success(status === 'confirmed' ? '已确认' : '已标记有疑问');
-    // 刷新详情
     const updated = changeRecords.find((r) => r.id === selectedRecord.id);
     if (updated) setSelectedRecord(updated);
   };
@@ -100,6 +168,7 @@ const Changes = () => {
 
   const handleSubmitCreate = () => {
     form.validateFields().then((values) => {
+      const deadline = values.deadline ? values.deadline.toISOString() : undefined;
       addChangeRecord({
         apiId: values.apiId,
         title: values.title,
@@ -113,18 +182,33 @@ const Changes = () => {
         reviewComments: [],
         changeReason: values.changeReason,
         reviewerId: values.reviewerId,
-        confirmations: (values.confirmUserIds || []).map((userId: string) => ({
-          id: 'conf-' + Date.now() + '-' + userId,
+        deadline,
+        confirmations: (values.confirmUserIds || []).map((userId: string, index: number) => ({
+          id: 'conf-' + Date.now() + '-' + index,
           userId,
           status: 'pending' as ConfirmationStatus,
           confirmedAt: null,
           comment: '',
+          deadline: values.confirmDeadline ? values.confirmDeadline.toISOString() : undefined,
         })),
       });
       setCreateVisible(false);
       form.resetFields();
       message.success('变更已提交');
     });
+  };
+
+  const handleSendReminder = (targetUserId: string) => {
+    if (!selectedRecord || !currentUser) return;
+    sendReminder(selectedRecord.id, targetUserId, currentUser.id);
+    message.success('催办提醒已发送');
+    const updated = changeRecords.find((r) => r.id === selectedRecord.id);
+    if (updated) setSelectedRecord(updated);
+  };
+
+  const isOverdue = (deadline?: string) => {
+    if (!deadline) return false;
+    return new Date(deadline) < new Date();
   };
 
   const pendingMyReview = useMemo(
@@ -148,7 +232,14 @@ const Changes = () => {
       width: 200,
       render: (text, record) => (
         <div>
-          <div className="font-medium">{text}</div>
+          <div className="flex items-center gap-2">
+            {record.deadline && isOverdue(record.deadline) && (
+              <Badge dot color="red" offset={[-2, 0]}>
+                <WarningOutlined className="text-red-500" />
+              </Badge>
+            )}
+            <span className="font-medium">{text}</span>
+          </div>
           <div className="text-xs text-gray-500">版本: {record.version}</div>
         </div>
       ),
@@ -169,6 +260,24 @@ const Changes = () => {
       key: 'changeReason',
       ellipsis: true,
       render: (text) => text || '-',
+    },
+    {
+      title: '截止时间',
+      dataIndex: 'deadline',
+      key: 'deadline',
+      width: 160,
+      render: (date) =>
+        date ? (
+          <div className="flex items-center gap-1">
+            <FieldTimeOutlined className={isOverdue(date) ? 'text-red-500' : 'text-gray-400'} />
+            <span className={isOverdue(date) ? 'text-red-500 font-medium' : ''}>
+              {formatDate(date)}
+            </span>
+            {isOverdue(date) && <Tag color="red" style={{ fontSize: 10 }}>已超时</Tag>}
+          </div>
+        ) : (
+          '-'
+        ),
     },
     {
       title: '提交人',
@@ -211,11 +320,12 @@ const Changes = () => {
     {
       title: '操作',
       key: 'actions',
-      width: 220,
+      width: 240,
       fixed: 'right',
       render: (_, record) => {
         const myConfirmation = record.confirmations?.find((c) => c.userId === currentUser?.id);
         const isReviewer = record.reviewerId === currentUser?.id && record.status === 'pending';
+        const isSubmitter = record.submitter === currentUser?.id;
         return (
           <Space size="small">
             <Tooltip title="查看详情">
@@ -257,6 +367,19 @@ const Changes = () => {
                 />
               </Tooltip>
             )}
+            {isSubmitter && record.status === 'pending' && (
+              <Tooltip title="催办">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<BellOutlined />}
+                  onClick={() => {
+                    setSelectedRecord(record);
+                    if (record.reviewerId) handleSendReminder(record.reviewerId);
+                  }}
+                />
+              </Tooltip>
+            )}
           </Space>
         );
       },
@@ -267,7 +390,7 @@ const Changes = () => {
     {
       key: 'all',
       label: '全部',
-      children: <Table columns={columns} dataSource={changeRecords} rowKey="id" pagination={{ pageSize: 10 }} />,
+      children: <Table columns={columns} dataSource={changeRecords} rowKey="id" pagination={{ pageSize: 10 }} rowClassName={(record) => record.id === highlightChangeId ? 'bg-yellow-50' : ''} />,
     },
     {
       key: 'my-review',
@@ -318,7 +441,7 @@ const Changes = () => {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" ref={tableRef}>
       <Card
         size="small"
         title="变更记录"
@@ -382,6 +505,14 @@ const Changes = () => {
               ))}
             </Select>
           </Form.Item>
+          <div className="grid grid-cols-2 gap-4">
+            <Form.Item name="deadline" label="评审截止时间">
+              <DatePicker showTime style={{ width: '100%' }} placeholder="选择截止时间" />
+            </Form.Item>
+            <Form.Item name="confirmDeadline" label="确认截止时间">
+              <DatePicker showTime style={{ width: '100%' }} placeholder="选择截止时间" />
+            </Form.Item>
+          </div>
         </Form>
       </Modal>
 
@@ -394,7 +525,7 @@ const Changes = () => {
             关闭
           </Button>,
         ]}
-        width={800}
+        width={900}
       >
         {selectedRecord && (
           <div className="space-y-4">
@@ -436,6 +567,16 @@ const Changes = () => {
                 })()}
               </Descriptions.Item>
               <Descriptions.Item label="提交时间">{formatDate(selectedRecord.createdAt)}</Descriptions.Item>
+              <Descriptions.Item label="截止时间">
+                {selectedRecord.deadline ? (
+                  <span className={isOverdue(selectedRecord.deadline) ? 'text-red-500' : ''}>
+                    {formatDate(selectedRecord.deadline)}
+                    {isOverdue(selectedRecord.deadline) && ' (已超时)'}
+                  </span>
+                ) : (
+                  '-'
+                )}
+              </Descriptions.Item>
             </Descriptions>
 
             <div>
@@ -495,6 +636,11 @@ const Changes = () => {
                           <Avatar src={user?.avatar} size={24} icon={<UserOutlined />} />
                           <span>{user?.name}</span>
                           {isMine && <Tag color="blue" style={{ fontSize: 10 }}>我</Tag>}
+                          {conf.deadline && (
+                            <span className={`text-xs ${isOverdue(conf.deadline) ? 'text-red-500' : 'text-gray-400'}`}>
+                              截止: {formatDate(conf.deadline)}
+                            </span>
+                          )}
                         </div>
                         <Space>
                           <Tag color={getConfirmationStatusColor(conf.status)}>
@@ -508,6 +654,16 @@ const Changes = () => {
                             >
                               去确认
                             </Button>
+                          )}
+                          {!isMine && conf.status === 'pending' && selectedRecord.submitter === currentUser?.id && (
+                            <Tooltip title="催办">
+                              <Button
+                                size="small"
+                                type="text"
+                                icon={<BellOutlined />}
+                                onClick={() => handleSendReminder(conf.userId)}
+                              />
+                            </Tooltip>
                           )}
                           {conf.comment && (
                             <Tooltip title={conf.comment}>
@@ -534,28 +690,42 @@ const Changes = () => {
               </div>
             )}
 
-            {selectedRecord.reviewComments && selectedRecord.reviewComments.length > 0 && (
-              <div>
-                <h4 className="font-medium mb-2">评审记录</h4>
-                <Timeline
-                  items={selectedRecord.reviewComments.map((rc) => {
-                    const author = getMemberById(rc.author);
+            <div>
+              <h4 className="font-medium mb-2">协作时间线</h4>
+              <Timeline
+                items={selectedRecord.timeline
+                  .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                  .map((item) => {
+                    const user = item.userId ? getMemberById(item.userId) : null;
+                    const targetUser = item.targetUserId ? getMemberById(item.targetUserId) : null;
                     return {
-                      content: (
+                      dot: getTimelineIcon(item.type),
+                      color: getTimelineColor(item.type),
+                      children: (
                         <div>
-                          <div className="flex items-center gap-2">
-                            <Avatar src={author?.avatar} size={20} />
-                            <span className="font-medium">{author?.name}</span>
-                            <span className="text-xs text-gray-400">{formatDate(rc.createdAt)}</span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {user && (
+                              <span className="flex items-center gap-1">
+                                <Avatar src={user.avatar} size={20} />
+                                <span className="font-medium">{user.name}</span>
+                              </span>
+                            )}
+                            <span>{item.content}</span>
+                            {targetUser && (
+                              <span className="flex items-center gap-1 text-gray-500">
+                                <UserOutlined />
+                                {targetUser.name}
+                              </span>
+                            )}
+                            <span className="text-xs text-gray-400">{formatDate(item.createdAt)}</span>
                           </div>
-                          <p className="text-gray-600 mt-1">{rc.content}</p>
+                          {item.note && <p className="text-gray-500 text-sm mt-1">备注：{item.note}</p>}
                         </div>
                       ),
                     };
                   })}
-                />
-              </div>
-            )}
+              />
+            </div>
           </div>
         )}
       </Modal>

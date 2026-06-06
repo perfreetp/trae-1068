@@ -55,7 +55,7 @@ const NotificationDropdown = ({ children }: NotificationDropdownProps) => {
     markNotificationRead(notification.id);
     
     if (notification.relatedType === 'change') {
-      navigate('/changes');
+      navigate(`/changes?changeId=${notification.relatedId}`);
     } else if (notification.relatedType === 'api') {
       if (notification.type === 'mention') {
         navigate(`/api/${notification.relatedId}#comments-section`);

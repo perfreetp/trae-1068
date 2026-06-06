@@ -11,6 +11,7 @@ import Changes from "@/pages/Changes";
 import Members from "@/pages/Members";
 import ErrorCodes from "@/pages/ErrorCodes";
 import Notifications from "@/pages/Notifications";
+import TodoBoard from "@/pages/TodoBoard";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="/test-cases" element={<TestCases />} />
             <Route path="/changes" element={<Changes />} />
             <Route path="/notifications" element={<Notifications />} />
+            <Route path="/todo" element={<TodoBoard />} />
             <Route path="/members" element={<Members />} />
             <Route path="/error-codes" element={<ErrorCodes />} />
           </Routes>

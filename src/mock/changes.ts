@@ -16,8 +16,8 @@ export const mockChangeRecords: ChangeRecord[] = [
     status: 'approved',
     reviewerId: 'user-1',
     confirmations: [
-      { id: 'conf1', userId: 'user-3', status: 'confirmed', confirmedAt: '2024-06-01T15:30:00Z' },
-      { id: 'conf2', userId: 'user-4', status: 'pending' },
+      { id: 'conf1', userId: 'user-3', status: 'confirmed', confirmedAt: '2024-06-01T15:30:00Z', deadline: '2024-06-02T18:00:00Z' },
+      { id: 'conf2', userId: 'user-4', status: 'pending', deadline: '2024-06-07T18:00:00Z' },
     ],
     reviewComments: [
       { id: 'rc1', author: 'user-1', content: '变更合理，同意通过', createdAt: '2024-06-01T16:00:00Z' },
@@ -26,6 +26,15 @@ export const mockChangeRecords: ChangeRecord[] = [
     reviewedAt: '2024-06-01T16:00:00Z',
     reviewedBy: 'user-1',
     reviewNote: '变更合理，符合安全规范',
+    deadline: '2024-06-02T18:00:00Z',
+    timeline: [
+      { id: 'tl-1', type: 'submit', userId: 'user-2', content: '提交了变更申请', createdAt: '2024-06-01T15:00:00Z' },
+      { id: 'tl-2', type: 'reviewer_assign', userId: 'user-2', targetUserId: 'user-1', content: '指定了评审人', createdAt: '2024-06-01T15:00:00Z' },
+      { id: 'tl-3', type: 'confirmation_assign', userId: 'user-2', targetUserId: 'user-3', content: '指定了确认人', createdAt: '2024-06-01T15:00:00Z' },
+      { id: 'tl-4', type: 'confirmation_assign', userId: 'user-2', targetUserId: 'user-4', content: '指定了确认人', createdAt: '2024-06-01T15:00:00Z' },
+      { id: 'tl-5', type: 'confirm', userId: 'user-3', content: '确认了变更', createdAt: '2024-06-01T15:30:00Z' },
+      { id: 'tl-6', type: 'approve', userId: 'user-1', content: '通过了评审', note: '变更合理，符合安全规范', createdAt: '2024-06-01T16:00:00Z' },
+    ],
   },
   {
     id: 'cr-2',
@@ -41,10 +50,17 @@ export const mockChangeRecords: ChangeRecord[] = [
     status: 'pending',
     reviewerId: 'user-1',
     confirmations: [
-      { id: 'conf3', userId: 'user-2', status: 'pending' },
-      { id: 'conf4', userId: 'user-5', status: 'pending' },
+      { id: 'conf3', userId: 'user-2', status: 'pending', deadline: '2024-06-07T18:00:00Z' },
+      { id: 'conf4', userId: 'user-5', status: 'pending', deadline: '2024-06-07T18:00:00Z' },
     ],
     createdAt: '2024-06-05T10:00:00Z',
+    deadline: '2024-06-06T18:00:00Z',
+    timeline: [
+      { id: 'tl-7', type: 'submit', userId: 'user-3', content: '提交了变更申请', createdAt: '2024-06-05T10:00:00Z' },
+      { id: 'tl-8', type: 'reviewer_assign', userId: 'user-3', targetUserId: 'user-1', content: '指定了评审人', createdAt: '2024-06-05T10:00:00Z' },
+      { id: 'tl-9', type: 'confirmation_assign', userId: 'user-3', targetUserId: 'user-2', content: '指定了确认人', createdAt: '2024-06-05T10:00:00Z' },
+      { id: 'tl-10', type: 'confirmation_assign', userId: 'user-3', targetUserId: 'user-5', content: '指定了确认人', createdAt: '2024-06-05T10:00:00Z' },
+    ],
   },
   {
     id: 'cr-3',
@@ -60,7 +76,7 @@ export const mockChangeRecords: ChangeRecord[] = [
     status: 'rejected',
     reviewerId: 'user-1',
     confirmations: [
-      { id: 'conf5', userId: 'user-2', status: 'questioned', comment: '缺少优惠券计算逻辑', confirmedAt: '2024-06-03T11:00:00Z' },
+      { id: 'conf5', userId: 'user-2', status: 'questioned', comment: '缺少优惠券计算逻辑', confirmedAt: '2024-06-03T11:00:00Z', deadline: '2024-06-04T18:00:00Z' },
     ],
     reviewComments: [
       { id: 'rc2', author: 'user-1', content: '缺少优惠券字段，请补充后重新提交', createdAt: '2024-06-03T14:00:00Z' },
@@ -69,6 +85,14 @@ export const mockChangeRecords: ChangeRecord[] = [
     reviewedAt: '2024-06-03T14:00:00Z',
     reviewedBy: 'user-1',
     reviewNote: '缺少必要的优惠券和促销字段，需要补充完整',
+    deadline: '2024-06-04T18:00:00Z',
+    timeline: [
+      { id: 'tl-11', type: 'submit', userId: 'user-3', content: '提交了变更申请', createdAt: '2024-06-03T09:00:00Z' },
+      { id: 'tl-12', type: 'reviewer_assign', userId: 'user-3', targetUserId: 'user-1', content: '指定了评审人', createdAt: '2024-06-03T09:00:00Z' },
+      { id: 'tl-13', type: 'confirmation_assign', userId: 'user-3', targetUserId: 'user-2', content: '指定了确认人', createdAt: '2024-06-03T09:00:00Z' },
+      { id: 'tl-14', type: 'question', userId: 'user-2', content: '提出了疑问', note: '缺少优惠券计算逻辑', createdAt: '2024-06-03T11:00:00Z' },
+      { id: 'tl-15', type: 'reject', userId: 'user-1', content: '驳回了评审', note: '缺少必要的优惠券和促销字段，需要补充完整', createdAt: '2024-06-03T14:00:00Z' },
+    ],
   },
   {
     id: 'cr-4',
@@ -84,8 +108,14 @@ export const mockChangeRecords: ChangeRecord[] = [
     status: 'pending',
     reviewerId: 'user-1',
     confirmations: [
-      { id: 'conf6', userId: 'user-4', status: 'pending' },
+      { id: 'conf6', userId: 'user-4', status: 'pending', deadline: '2024-06-08T18:00:00Z' },
     ],
     createdAt: '2024-06-03T14:00:00Z',
+    deadline: '2024-06-07T18:00:00Z',
+    timeline: [
+      { id: 'tl-16', type: 'submit', userId: 'user-2', content: '提交了变更申请', createdAt: '2024-06-03T14:00:00Z' },
+      { id: 'tl-17', type: 'reviewer_assign', userId: 'user-2', targetUserId: 'user-1', content: '指定了评审人', createdAt: '2024-06-03T14:00:00Z' },
+      { id: 'tl-18', type: 'confirmation_assign', userId: 'user-2', targetUserId: 'user-4', content: '指定了确认人', createdAt: '2024-06-03T14:00:00Z' },
+    ],
   },
 ];

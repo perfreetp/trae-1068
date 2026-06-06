@@ -14,6 +14,7 @@ import {
   CodeOutlined,
   RocketOutlined,
   InboxOutlined,
+  UnorderedListOutlined,
 } from '@ant-design/icons';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useUserStore } from '@/store/userStore';
@@ -41,6 +42,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     { key: '/debug', icon: <RocketOutlined />, label: '在线调试' },
     { key: '/test-cases', icon: <FileTextOutlined />, label: '用例管理' },
     { key: '/changes', icon: <HistoryOutlined />, label: '变更记录' },
+    { key: '/todo', icon: <UnorderedListOutlined />, label: '待办看板' },
     { key: '/notifications', icon: <InboxOutlined />, label: '通知中心' },
     { key: '/members', icon: <TeamOutlined />, label: '成员权限' },
     { key: '/error-codes', icon: <CodeOutlined />, label: '错误码' },
@@ -60,6 +62,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       '/debug': '在线调试',
       '/test-cases': '用例管理',
       '/changes': '变更记录',
+      '/todo': '待办看板',
       '/notifications': '通知中心',
       '/members': '成员权限',
       '/error-codes': '错误码',

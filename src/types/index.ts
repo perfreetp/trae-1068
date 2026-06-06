@@ -16,7 +16,15 @@ export type ConfirmationStatus = 'pending' | 'confirmed' | 'questioned';
 
 export type NotificationType = 'change_confirmation' | 'review_result' | 'mention' | 'review_request';
 
-export type NotificationFilterType = 'all' | 'unread' | 'read' | 'change_confirmation' | 'mention' | 'review_result';
+export type NotificationFilterType = 'all' | 'unread' | 'read' | 'change_confirmation' | 'mention' | 'review_result' | 'my_review' | 'my_confirmation';
+
+export type TimelineItemType = 'submit' | 'reviewer_assign' | 'confirmation_assign' | 'confirm' | 'question' | 'approve' | 'reject' | 'reminder';
+
+export type TodoStatus = 'pending' | 'completed' | 'overdue';
+
+export type TodoType = 'confirmation' | 'review' | 'mention' | 'my_review_pending';
+
+export type EnvironmentType = 'local' | 'test' | 'staging' | 'production' | 'custom';
 
 export interface Param {
   id: string;
@@ -124,6 +132,26 @@ export interface ConfirmationItem {
   status: ConfirmationStatus;
   comment?: string;
   confirmedAt?: string;
+  deadline?: string;
+}
+
+export interface TimelineItem {
+  id: string;
+  type: TimelineItemType;
+  userId?: string;
+  targetUserId?: string;
+  content: string;
+  note?: string;
+  createdAt: string;
+}
+
+export interface DebugEnvironment {
+  id: string;
+  name: string;
+  type: EnvironmentType;
+  baseUrl: string;
+  headers: Array<{ key: string; value: string; enabled: boolean }>;
+  isDefault?: boolean;
 }
 
 export interface ChangeRecord {
@@ -143,6 +171,8 @@ export interface ChangeRecord {
   reviewedAt?: string;
   reviewedBy?: string;
   reviewNote?: string;
+  deadline?: string;
+  timeline: TimelineItem[];
 }
 
 export interface Member {
@@ -161,7 +191,24 @@ export interface Comment {
   author: string;
   mentions: string[];
   replyTo?: string;
+  parentId?: string;
   createdAt: string;
+}
+
+export interface TodoItem {
+  id: string;
+  type: TodoType;
+  title: string;
+  description: string;
+  relatedId: string;
+  relatedType: 'api' | 'change' | 'comment';
+  status: TodoStatus;
+  priority: 'high' | 'medium' | 'low';
+  assigneeId: string;
+  creatorId: string;
+  deadline?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ErrorCode {
@@ -205,6 +252,8 @@ export interface DebugPreset {
   formData: Array<{ key: string; value: string; enabled: boolean }>;
   createdAt: string;
   updatedAt: string;
+  ownerId: string;
+  isShared: boolean;
 }
 
 export interface Notification {

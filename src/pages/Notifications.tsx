@@ -6,39 +6,40 @@ import {
   Button,
   Space,
   Tag,
-  Checkbox,
   Select,
-  Avatar,
+  Checkbox,
   message,
   Empty,
+  Badge,
   Tooltip,
 } from 'antd';
 import {
-  CheckOutlined,
-  InboxOutlined,
-  MessageOutlined,
   CheckCircleOutlined,
-  UserOutlined,
+  ClockCircleOutlined,
+  MessageOutlined,
   BellOutlined,
-  DeleteOutlined,
-  ArrowRightOutlined,
+  UserOutlined,
+  EyeOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useApiStore } from '@/store/apiStore';
 import { useUserStore } from '@/store/userStore';
-import { Notification, NotificationType, NotificationFilterType } from '@/types';
-import { formatDate, formatRelativeTime } from '@/utils/helpers';
+import { Notification, NotificationType, ConfirmationStatus, ReviewStatus } from '@/types';
+import { formatDate } from '@/utils/helpers';
 
-const getNotificationIcon = (type: NotificationType) => {
+const { Option } = Select;
+
+const getNotificationTypeIcon = (type: NotificationType) => {
   switch (type) {
     case 'change_confirmation':
-      return <InboxOutlined className="text-orange-500" />;
+      return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
     case 'review_result':
-      return <CheckCircleOutlined className="text-green-500" />;
+      return <BellOutlined style={{ color: '#1890ff' }} />;
     case 'mention':
-      return <MessageOutlined className="text-blue-500" />;
+      return <MessageOutlined style={{ color: '#722ed1' }} />;
     case 'review_request':
-      return <UserOutlined className="text-purple-500" />;
+      return <ClockCircleOutlined style={{ color: '#faad14' }} />;
     default:
       return <BellOutlined />;
   }
@@ -62,55 +63,103 @@ const getNotificationTypeText = (type: NotificationType) => {
 const getNotificationTypeColor = (type: NotificationType) => {
   switch (type) {
     case 'change_confirmation':
-      return 'orange';
-    case 'review_result':
       return 'green';
-    case 'mention':
+    case 'review_result':
       return 'blue';
-    case 'review_request':
+    case 'mention':
       return 'purple';
+    case 'review_request':
+      return 'gold';
     default:
       return 'default';
   }
 };
 
 const Notifications = () => {
-  const navigate = useNavigate();
+  const { notifications, markNotificationRead, markAllNotificationsRead, changeRecords } = useApiStore();
   const { currentUser } = useUserStore();
-  const { getNotificationsByUserId, markNotificationRead, markAllNotificationsRead } = useApiStore();
+  const navigate = useNavigate();
   
-  const [filterType, setFilterType] = useState<NotificationFilterType>('all');
+  const [filterType, setFilterType] = useState<string>('all');
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
-  const notifications = useMemo(
-    () => getNotificationsByUserId(currentUser.id),
-    [currentUser.id, getNotificationsByUserId]
+  const myNotifications = useMemo(
+    () =>
+      notifications
+        .filter((n) => n.userId === currentUser?.id)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [notifications, currentUser]
   );
 
-  const filteredNotifications = useMemo(() => {
-    return notifications.filter((n) => {
-      switch (filterType) {
-        case 'unread':
-          return !n.read;
-        case 'read':
-          return n.read;
-        case 'change_confirmation':
-        case 'mention':
-        case 'review_result':
-          return n.type === filterType;
-        default:
-          return true;
-      }
-    });
-  }, [notifications, filterType]);
+  const getConfirmationStatus = (n: Notification): ConfirmationStatus | null => {
+    if (n.type !== 'change_confirmation') return null;
+    const change = changeRecords.find((c) => c.id === n.relatedId);
+    if (!change) return null;
+    const myConf = change.confirmations.find((c) => c.userId === currentUser?.id);
+    return myConf?.status || null;
+  };
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const getReviewStatus = (n: Notification): ReviewStatus | null => {
+    if (n.type === 'review_request') {
+      const change = changeRecords.find((c) => c.id === n.relatedId);
+      return change?.status || null;
+    }
+    if (n.type === 'review_result') {
+      const change = changeRecords.find((c) => c.id === n.relatedId);
+      return change?.status || null;
+    }
+    return null;
+  };
+
+  const filteredNotifications = useMemo(() => {
+    let result = myNotifications;
+    
+    switch (filterType) {
+      case 'unread':
+        result = result.filter((n) => !n.read);
+        break;
+      case 'read':
+        result = result.filter((n) => n.read);
+        break;
+      case 'change_confirmation':
+        result = result.filter((n) => n.type === 'change_confirmation');
+        break;
+      case 'change_confirmation_pending':
+        result = result.filter((n) => n.type === 'change_confirmation' && getConfirmationStatus(n) === 'pending');
+        break;
+      case 'change_confirmation_confirmed':
+        result = result.filter((n) => n.type === 'change_confirmation' && getConfirmationStatus(n) === 'confirmed');
+        break;
+      case 'change_confirmation_questioned':
+        result = result.filter((n) => n.type === 'change_confirmation' && getConfirmationStatus(n) === 'questioned');
+        break;
+      case 'review_result':
+        result = result.filter((n) => n.type === 'review_result');
+        break;
+      case 'review_request':
+        result = result.filter((n) => n.type === 'review_request');
+        break;
+      case 'review_mine':
+        result = result.filter((n) => n.type === 'review_request' && getReviewStatus(n) === 'pending');
+        break;
+      case 'review_processed':
+        result = result.filter((n) => n.type === 'review_request' && getReviewStatus(n) !== 'pending');
+        break;
+      case 'mention':
+        result = result.filter((n) => n.type === 'mention');
+        break;
+      default:
+        break;
+    }
+    
+    return result;
+  }, [myNotifications, filterType, changeRecords, currentUser]);
 
   const handleRowClick = (record: Notification) => {
     markNotificationRead(record.id);
     
     if (record.relatedType === 'change') {
-      navigate('/changes');
+      navigate(`/changes?changeId=${record.relatedId}`);
     } else if (record.relatedType === 'api') {
       if (record.type === 'mention') {
         navigate(`/api/${record.relatedId}#comments-section`);
@@ -125,11 +174,11 @@ const Notifications = () => {
       markNotificationRead(key as string);
     });
     setSelectedRowKeys([]);
-    message.success(`已将 ${selectedRowKeys.length} 条通知标记为已读`);
+    message.success(`已标记 ${selectedRowKeys.length} 条通知为已读`);
   };
 
   const handleMarkAllRead = () => {
-    markAllNotificationsRead(currentUser.id);
+    markAllNotificationsRead(currentUser?.id || '');
     message.success('已全部标记为已读');
   };
 
@@ -138,36 +187,62 @@ const Notifications = () => {
       title: '状态',
       dataIndex: 'read',
       key: 'read',
-      width: 60,
-      render: (read) => (
-        <div className="flex justify-center">
-          {!read && <div className="w-2 h-2 bg-blue-500 rounded-full" />}
-        </div>
-      ),
+      width: 80,
+      render: (read) =>
+        read ? (
+          <Tag color="default" style={{ fontSize: 11 }}>已读</Tag>
+        ) : (
+          <Badge dot color="blue" offset={[-2, 0]}>
+            <Tag color="blue" style={{ fontSize: 11 }}>未读</Tag>
+          </Badge>
+        ),
     },
     {
       title: '类型',
       dataIndex: 'type',
       key: 'type',
-      width: 100,
-      render: (type: NotificationType) => (
-        <Tag color={getNotificationTypeColor(type)}>
-          {getNotificationTypeText(type)}
-        </Tag>
-      ),
+      width: 120,
+      render: (type: NotificationType, record) => {
+        const status = getConfirmationStatus(record) || getReviewStatus(record);
+        return (
+          <div className="flex flex-col gap-1">
+            <Tag icon={getNotificationTypeIcon(type)} color={getNotificationTypeColor(type)}>
+              {getNotificationTypeText(type)}
+            </Tag>
+            {status && (
+              <Tag
+                color={
+                  status === 'pending'
+                    ? 'warning'
+                    : status === 'confirmed' || status === 'approved'
+                    ? 'success'
+                    : 'error'
+                }
+                style={{ fontSize: 10, margin: 0 }}
+              >
+                {status === 'pending'
+                  ? '待处理'
+                  : status === 'confirmed'
+                  ? '已确认'
+                  : status === 'approved'
+                  ? '已通过'
+                  : status === 'questioned'
+                  ? '有疑问'
+                  : '已拒绝'}
+              </Tag>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: '通知内容',
+      dataIndex: 'content',
       key: 'content',
-      render: (_, record) => (
-        <div className="flex gap-3">
-          <Avatar size={40} icon={getNotificationIcon(record.type)} className="bg-gray-100 flex-shrink-0" />
-          <div className="min-w-0">
-            <div className={`font-medium ${!record.read ? 'text-gray-900' : 'text-gray-600'}`}>
-              {record.title}
-            </div>
-            <p className="text-sm text-gray-500 mt-1 truncate">{record.content}</p>
-          </div>
+      render: (text, record) => (
+        <div>
+          <div className="font-medium">{record.title}</div>
+          <div className="text-gray-500 text-sm">{text}</div>
         </div>
       ),
     },
@@ -175,110 +250,121 @@ const Notifications = () => {
       title: '时间',
       dataIndex: 'createdAt',
       key: 'createdAt',
-      width: 180,
-      render: (date) => (
-        <Tooltip title={formatDate(date)}>
-          <span className="text-gray-500">{formatRelativeTime(date)}</span>
-        </Tooltip>
-      ),
+      width: 160,
+      render: (date) => formatDate(date),
     },
     {
       title: '操作',
       key: 'actions',
       width: 120,
+      fixed: 'right',
       render: (_, record) => (
-        <Space size="small">
-          {!record.read && (
+        <Space>
+          <Tooltip title="查看详情">
             <Button
               type="text"
               size="small"
-              icon={<CheckOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                markNotificationRead(record.id);
-              }}
-            >
-              标记已读
-            </Button>
+              icon={<EyeOutlined />}
+              onClick={() => handleRowClick(record)}
+            />
+          </Tooltip>
+          {!record.read && (
+            <Tooltip title="标记已读">
+              <Button
+                type="text"
+                size="small"
+                icon={<CheckCircleOutlined />}
+                onClick={() => markNotificationRead(record.id)}
+              />
+            </Tooltip>
           )}
-          <Button
-            type="text"
-            size="small"
-            icon={<ArrowRightOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleRowClick(record);
-            }}
-          >
-            查看
-          </Button>
         </Space>
       ),
     },
   ];
 
-  const rowSelection = {
-    selectedRowKeys,
-    onChange: setSelectedRowKeys,
-  };
-
   const filterOptions = [
     { value: 'all', label: '全部通知' },
-    { value: 'unread', label: '未读通知' },
-    { value: 'read', label: '已读通知' },
-    { value: 'change_confirmation', label: '变更确认' },
-    { value: 'review_result', label: '评审结果' },
-    { value: 'mention', label: '@我的' },
+    { value: 'unread', label: '未读' },
+    { value: 'read', label: '已读' },
+    { value: 'divider1', label: '--- 变更确认 ---', disabled: true },
+    { value: 'change_confirmation', label: '全部变更确认' },
+    { value: 'change_confirmation_pending', label: '待我确认' },
+    { value: 'change_confirmation_confirmed', label: '已确认' },
+    { value: 'change_confirmation_questioned', label: '有疑问' },
+    { value: 'divider2', label: '--- 评审 ---', disabled: true },
+    { value: 'review_request', label: '全部评审通知' },
+    { value: 'review_mine', label: '待我评审' },
+    { value: 'review_processed', label: '我已处理' },
+    { value: 'review_result', label: '评审结果通知' },
+    { value: 'divider3', label: '--- 评论 ---', disabled: true },
+    { value: 'mention', label: '@我的评论' },
   ];
 
   return (
     <div className="space-y-4">
       <Card
         size="small"
-        title={
-          <div className="flex items-center gap-2">
-            <InboxOutlined />
-            <span>通知中心</span>
-            {unreadCount > 0 && (
-              <Tag color="red" style={{ margin: 0 }}>
-                {unreadCount} 条未读
-              </Tag>
-            )}
-          </div>
-        }
+        title="通知中心"
         extra={
           <Space>
-            <Select
-              value={filterType}
-              onChange={setFilterType as any}
-              style={{ width: 140 }}
-              size="small"
-              options={filterOptions}
-            />
-            {selectedRowKeys.length > 0 && (
-              <Button size="small" icon={<CheckOutlined />} onClick={handleMarkSelectedRead}>
-                标记已读 ({selectedRowKeys.length})
-              </Button>
-            )}
-            <Button size="small" icon={<CheckOutlined />} onClick={handleMarkAllRead}>
-              全部已读
-            </Button>
+            <span className="text-gray-500">
+              共 {filteredNotifications.length} 条，未读 {filteredNotifications.filter((n) => !n.read).length} 条
+            </span>
           </Space>
         }
       >
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <Space wrap>
+            <Select
+              value={filterType}
+              onChange={setFilterType}
+              style={{ width: 180 }}
+              size="small"
+            >
+              {filterOptions.map((opt) =>
+                opt.disabled ? (
+                  <Option key={opt.value} disabled value={opt.value}>
+                    <span className="text-gray-400 text-xs">{opt.label}</span>
+                  </Option>
+                ) : (
+                  <Option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </Option>
+                )
+              )}
+            </Select>
+          </Space>
+          <Space>
+            {selectedRowKeys.length > 0 && (
+              <Button size="small" onClick={handleMarkSelectedRead}>
+                标记已读 ({selectedRowKeys.length})
+              </Button>
+            )}
+            <Button size="small" onClick={handleMarkAllRead}>
+              全部已读
+            </Button>
+          </Space>
+        </div>
+
         <Table
           columns={columns}
           dataSource={filteredNotifications}
           rowKey="id"
-          rowSelection={rowSelection}
-          pagination={{ pageSize: 20, showSizeChanger: true }}
+          pagination={{ pageSize: 20 }}
           onRow={(record) => ({
             onClick: () => handleRowClick(record),
             style: { cursor: 'pointer' },
           })}
-          locale={{
-            emptyText: <Empty description="暂无通知" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+          rowSelection={{
+            selectedRowKeys,
+            onChange: setSelectedRowKeys,
+            hideSelectAll: false,
           }}
+          locale={{
+            emptyText: <Empty description="暂无通知" />,
+          }}
+          rowClassName={(record) => (!record.read ? 'bg-blue-50/30' : '')}
         />
       </Card>
     </div>

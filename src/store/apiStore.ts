@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Api, Module, TestCase, ChangeRecord, Comment, ErrorCode, DebugHistory, DebugPreset, Notification, ConfirmationStatus, ReviewStatus } from '@/types';
+import { Api, Module, TestCase, ChangeRecord, Comment, ErrorCode, DebugHistory, DebugPreset, Notification, ConfirmationStatus, ReviewStatus, DebugEnvironment, TodoItem, TimelineItem, TimelineItemType } from '@/types';
 import { mockApis } from '@/mock/api';
 import { mockModules } from '@/mock/modules';
 import { mockTestCases } from '@/mock/testCases';
@@ -8,6 +8,8 @@ import { mockChangeRecords } from '@/mock/changes';
 import { mockComments } from '@/mock/comments';
 import { mockErrorCodes } from '@/mock/errorCodes';
 import { mockNotifications } from '@/mock/notifications';
+import { mockEnvironments } from '@/mock/environments';
+import { mockTodos } from '@/mock/todos';
 
 interface ApiStore {
   apis: Api[];
@@ -19,13 +21,17 @@ interface ApiStore {
   debugHistory: DebugHistory[];
   debugPresets: DebugPreset[];
   notifications: Notification[];
+  environments: DebugEnvironment[];
+  todos: TodoItem[];
   selectedModuleId: string | null;
   searchKeyword: string;
   statusFilter: string;
+  selectedEnvironmentId: string;
   
   setSelectedModuleId: (id: string | null) => void;
   setSearchKeyword: (keyword: string) => void;
   setStatusFilter: (status: string) => void;
+  setSelectedEnvironmentId: (id: string) => void;
   
   getApiById: (id: string) => Api | undefined;
   getModuleById: (id: string) => Module | undefined;
@@ -35,6 +41,9 @@ interface ApiStore {
   getChangeRecordsByApiId: (apiId: string) => ChangeRecord[];
   getNotificationsByUserId: (userId: string) => Notification[];
   getUnreadNotificationCount: (userId: string) => number;
+  getTodosByUserId: (userId: string) => TodoItem[];
+  getMyDebugPresets: (apiId: string, userId: string) => DebugPreset[];
+  getSharedPresets: (apiId: string) => DebugPreset[];
   
   toggleFavorite: (apiId: string) => void;
   addComment: (comment: Omit<Comment, 'id' | 'createdAt'>) => void;
@@ -54,6 +63,8 @@ interface ApiStore {
   updateDebugPreset: (id: string, updates: Partial<DebugPreset>) => void;
   deleteDebugPreset: (id: string) => void;
   getDebugPresetsByApiId: (apiId: string) => DebugPreset[];
+  sharePreset: (id: string, isShared: boolean) => void;
+  copyPreset: (preset: DebugPreset, userId: string) => string;
   
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: (userId: string) => void;
@@ -62,7 +73,14 @@ interface ApiStore {
   updateChangeRecord: (id: string, updates: Partial<ChangeRecord>) => void;
   updateConfirmationStatus: (changeId: string, confirmationId: string, status: ConfirmationStatus, comment?: string) => void;
   reviewChange: (id: string, status: ReviewStatus, reviewerId: string, note?: string) => void;
-  addChangeRecord: (record: Omit<ChangeRecord, 'id' | 'createdAt'>) => void;
+  addChangeRecord: (record: Omit<ChangeRecord, 'id' | 'createdAt' | 'timeline'>) => void;
+  addTimelineItem: (changeId: string, item: Omit<TimelineItem, 'id' | 'createdAt'>) => void;
+  sendReminder: (changeId: string, targetUserId: string, senderId: string) => void;
+  
+  addEnvironment: (env: Omit<DebugEnvironment, 'id'>) => void;
+  updateEnvironment: (id: string, updates: Partial<DebugEnvironment>) => void;
+  deleteEnvironment: (id: string) => void;
+  getCurrentEnvironment: () => DebugEnvironment | undefined;
 }
 
 const flattenModules = (modules: Module[]): Module[] => {
@@ -89,13 +107,17 @@ export const useApiStore = create<ApiStore>()(
       debugHistory: [],
       debugPresets: [],
       notifications: mockNotifications,
+      environments: mockEnvironments,
+      todos: mockTodos,
       selectedModuleId: null,
       searchKeyword: '',
       statusFilter: '',
+      selectedEnvironmentId: 'env-local',
 
       setSelectedModuleId: (id) => set({ selectedModuleId: id }),
       setSearchKeyword: (keyword) => set({ searchKeyword: keyword }),
       setStatusFilter: (status) => set({ statusFilter: status }),
+      setSelectedEnvironmentId: (id) => set({ selectedEnvironmentId: id }),
 
       getApiById: (id) => get().apis.find((a) => a.id === id),
       getModuleById: (id) => flattenModules(get().modules).find((m) => m.id === id),
@@ -123,6 +145,17 @@ export const useApiStore = create<ApiStore>()(
         ),
       getUnreadNotificationCount: (userId) => 
         get().notifications.filter((n) => n.userId === userId && !n.read).length,
+
+      getTodosByUserId: (userId) => 
+        get().todos.filter((t) => t.assigneeId === userId).sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        ),
+
+      getMyDebugPresets: (apiId, userId) => 
+        get().debugPresets.filter((p) => p.apiId === apiId && p.ownerId === userId && !p.isShared),
+
+      getSharedPresets: (apiId) => 
+        get().debugPresets.filter((p) => p.apiId === apiId && p.isShared),
 
       toggleFavorite: (apiId) =>
         set((state) => ({
@@ -264,6 +297,32 @@ export const useApiStore = create<ApiStore>()(
           ],
         })),
 
+      sharePreset: (id, isShared) =>
+        set((state) => ({
+          debugPresets: state.debugPresets.map((p) =>
+            p.id === id ? { ...p, isShared, updatedAt: new Date().toISOString() } : p
+          ),
+        })),
+
+      copyPreset: (preset, userId) => {
+        const newId = `dp${Date.now()}`;
+        set((state) => ({
+          debugPresets: [
+            ...state.debugPresets,
+            {
+              ...preset,
+              id: newId,
+              name: `${preset.name} (副本)`,
+              ownerId: userId,
+              isShared: false,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+          ],
+        }));
+        return newId;
+      },
+
       updateDebugPreset: (id, updates) =>
         set((state) => ({
           debugPresets: state.debugPresets.map((p) =>
@@ -312,7 +371,14 @@ export const useApiStore = create<ApiStore>()(
           ),
         })),
 
-      updateConfirmationStatus: (changeId, confirmationId, status, comment) =>
+      updateConfirmationStatus: (changeId, confirmationId, status, comment) => {
+        const timelineType: TimelineItemType = status === 'confirmed' ? 'confirm' : 'question';
+        get().addTimelineItem(changeId, {
+          type: timelineType,
+          userId: 'current-user',
+          content: status === 'confirmed' ? '确认了变更' : '提出了疑问',
+          note: comment,
+        });
         set((state) => ({
           changeRecords: state.changeRecords.map((cr) =>
             cr.id === changeId
@@ -326,11 +392,20 @@ export const useApiStore = create<ApiStore>()(
                 }
               : cr
           ),
-        })),
+        }));
+      },
 
       reviewChange: (id, status, reviewerId, note) => {
         const changeRecord = get().changeRecords.find((cr) => cr.id === id);
         if (!changeRecord) return;
+
+        const timelineType: TimelineItemType = status === 'approved' ? 'approve' : 'reject';
+        get().addTimelineItem(id, {
+          type: timelineType,
+          userId: reviewerId,
+          content: status === 'approved' ? '通过了评审' : '驳回了评审',
+          note,
+        });
 
         set((state) => ({
           changeRecords: state.changeRecords.map((cr) =>
@@ -360,10 +435,42 @@ export const useApiStore = create<ApiStore>()(
       },
 
       addChangeRecord: (record) => {
+        const now = new Date().toISOString();
+        const timeline: TimelineItem[] = [
+          {
+            id: `tl${Date.now()}-1`,
+            type: 'submit',
+            userId: record.submitter,
+            content: '提交了变更申请',
+            createdAt: now,
+          },
+        ];
+        if (record.reviewerId) {
+          timeline.push({
+            id: `tl${Date.now()}-2`,
+            type: 'reviewer_assign',
+            userId: record.submitter,
+            targetUserId: record.reviewerId,
+            content: '指定了评审人',
+            createdAt: now,
+          });
+        }
+        record.confirmations.forEach((conf, idx) => {
+          timeline.push({
+            id: `tl${Date.now()}-${3 + idx}`,
+            type: 'confirmation_assign',
+            userId: record.submitter,
+            targetUserId: conf.userId,
+            content: '指定了确认人',
+            createdAt: now,
+          });
+        });
+
         const newRecord = {
           ...record,
           id: `cr${Date.now()}`,
-          createdAt: new Date().toISOString(),
+          createdAt: now,
+          timeline,
         };
         set((state) => ({
           changeRecords: [...state.changeRecords, newRecord],
@@ -397,6 +504,67 @@ export const useApiStore = create<ApiStore>()(
           });
         });
       },
+
+      addTimelineItem: (changeId, item) =>
+        set((state) => ({
+          changeRecords: state.changeRecords.map((cr) =>
+            cr.id === changeId
+              ? {
+                  ...cr,
+                  timeline: [
+                    ...cr.timeline,
+                    { ...item, id: `tl${Date.now()}`, createdAt: new Date().toISOString() },
+                  ],
+                }
+              : cr
+          ),
+        })),
+
+      sendReminder: (changeId, targetUserId, senderId) => {
+        const changeRecord = get().changeRecords.find((cr) => cr.id === changeId);
+        if (!changeRecord) return;
+
+        get().addTimelineItem(changeId, {
+          type: 'reminder',
+          userId: senderId,
+          targetUserId,
+          content: '发送了催办提醒',
+        });
+
+        const api = get().getApiById(changeRecord.apiId);
+        get().addNotification({
+          type: 'change_confirmation',
+          title: '变更处理催办',
+          content: `请尽快处理【${api?.name || '接口'}】的变更`,
+          read: false,
+          userId: targetUserId,
+          relatedId: changeId,
+          relatedType: 'change',
+          senderId,
+        });
+      },
+
+      addEnvironment: (env) =>
+        set((state) => ({
+          environments: [...state.environments, { ...env, id: `env${Date.now()}` }],
+        })),
+
+      updateEnvironment: (id, updates) =>
+        set((state) => ({
+          environments: state.environments.map((e) =>
+            e.id === id ? { ...e, ...updates } : e
+          ),
+        })),
+
+      deleteEnvironment: (id) =>
+        set((state) => ({
+          environments: state.environments.filter((e) => e.id !== id),
+        })),
+
+      getCurrentEnvironment: () => {
+        const { environments, selectedEnvironmentId } = get();
+        return environments.find((e) => e.id === selectedEnvironmentId) || environments[0];
+      },
     }),
     {
       name: 'api-collab-storage',
@@ -407,6 +575,9 @@ export const useApiStore = create<ApiStore>()(
         comments: state.comments,
         changeRecords: state.changeRecords,
         testCases: state.testCases,
+        environments: state.environments,
+        todos: state.todos,
+        selectedEnvironmentId: state.selectedEnvironmentId,
       }),
     }
   )

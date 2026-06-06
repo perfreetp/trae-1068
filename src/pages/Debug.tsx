@@ -247,6 +247,8 @@ const Debug = () => {
         queryParams: queryParams.map((q) => ({ key: q.key, value: q.value, enabled: q.enabled })),
         bodyJson,
         formData: formData.map((f) => ({ key: f.key, value: f.value, enabled: f.enabled })),
+        ownerId: 'user-1',
+        isShared: false,
       });
       setSaveModalVisible(false);
       setPresetName('');
