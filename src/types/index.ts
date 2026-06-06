@@ -12,6 +12,12 @@ export type TestRunResult = 'passed' | 'failed';
 
 export type ReviewStatus = 'pending' | 'approved' | 'rejected';
 
+export type ConfirmationStatus = 'pending' | 'confirmed' | 'questioned';
+
+export type NotificationType = 'change_confirmation' | 'review_result' | 'mention' | 'review_request';
+
+export type NotificationFilterType = 'all' | 'unread' | 'read' | 'change_confirmation' | 'mention' | 'review_result';
+
 export interface Param {
   id: string;
   name: string;
@@ -112,19 +118,31 @@ export interface ReviewComment {
   createdAt: string;
 }
 
+export interface ConfirmationItem {
+  id: string;
+  userId: string;
+  status: ConfirmationStatus;
+  comment?: string;
+  confirmedAt?: string;
+}
+
 export interface ChangeRecord {
   id: string;
   apiId: string;
   version: string;
   title: string;
   description: string;
+  changeReason: string;
   changes: ChangeItem[];
   submitter: string;
   status: ReviewStatus;
-  reviewers: string[];
+  reviewerId?: string;
+  confirmations: ConfirmationItem[];
   reviewComments?: ReviewComment[];
   createdAt: string;
   reviewedAt?: string;
+  reviewedBy?: string;
+  reviewNote?: string;
 }
 
 export interface Member {
@@ -172,6 +190,35 @@ export interface DebugHistory {
     duration: number;
   };
   createdAt: string;
+}
+
+export interface DebugPreset {
+  id: string;
+  apiId: string;
+  name: string;
+  method: HttpMethod;
+  url: string;
+  bodyTab: 'none' | 'json' | 'form';
+  headers: Array<{ key: string; value: string; enabled: boolean }>;
+  queryParams: Array<{ key: string; value: string; enabled: boolean }>;
+  bodyJson: string;
+  formData: Array<{ key: string; value: string; enabled: boolean }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  content: string;
+  read: boolean;
+  userId: string;
+  relatedId: string;
+  relatedType: 'api' | 'change' | 'comment';
+  senderId?: string;
+  createdAt: string;
+  readAt?: string;
 }
 
 export interface ProjectInfo {

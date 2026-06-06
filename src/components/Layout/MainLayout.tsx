@@ -12,10 +12,14 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   CodeOutlined,
+  RocketOutlined,
+  InboxOutlined,
 } from '@ant-design/icons';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useUserStore } from '@/store/userStore';
 import { useProjectStore } from '@/store/projectStore';
+import { useApiStore } from '@/store/apiStore';
+import NotificationDropdown from '@/components/NotificationDropdown';
 
 const { Header, Sider, Content } = Layout;
 
@@ -29,12 +33,15 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const navigate = useNavigate();
   const { currentUser, members } = useUserStore();
   const { project } = useProjectStore();
+  const { getUnreadNotificationCount } = useApiStore();
 
   const menuItems = [
     { key: '/', icon: <HomeOutlined />, label: '项目首页' },
     { key: '/api', icon: <ApiOutlined />, label: '接口目录' },
+    { key: '/debug', icon: <RocketOutlined />, label: '在线调试' },
     { key: '/test-cases', icon: <FileTextOutlined />, label: '用例管理' },
     { key: '/changes', icon: <HistoryOutlined />, label: '变更记录' },
+    { key: '/notifications', icon: <InboxOutlined />, label: '通知中心' },
     { key: '/members', icon: <TeamOutlined />, label: '成员权限' },
     { key: '/error-codes', icon: <CodeOutlined />, label: '错误码' },
   ];
@@ -50,8 +57,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     const pathMap: Record<string, string> = {
       '/': '项目首页',
       '/api': '接口目录',
+      '/debug': '在线调试',
       '/test-cases': '用例管理',
       '/changes': '变更记录',
+      '/notifications': '通知中心',
       '/members': '成员权限',
       '/error-codes': '错误码',
     };
@@ -108,9 +117,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             <Breadcrumb items={getBreadcrumbItems()} />
           </div>
           <div className="flex items-center gap-4">
-            <Badge count={3} size="small">
+            <NotificationDropdown>
               <Button type="text" icon={<BellOutlined />} style={{ fontSize: 18 }} />
-            </Badge>
+            </NotificationDropdown>
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
                 <Avatar src={currentUser.avatar} size={32}>

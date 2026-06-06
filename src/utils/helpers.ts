@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { HttpMethod, ApiStatus, UserRole, ReviewStatus, TestRunResult, TestCaseStatus } from '@/types';
+import { HttpMethod, ApiStatus, UserRole, ReviewStatus, TestRunResult, TestCaseStatus, ConfirmationStatus } from '@/types';
 
 export const formatDate = (date: string, format: string = 'YYYY-MM-DD HH:mm') => {
   return dayjs(date).format(format);
@@ -83,6 +83,24 @@ export const getReviewStatusColor = (status: ReviewStatus): string => {
     pending: 'warning',
     approved: 'success',
     rejected: 'error',
+  };
+  return colors[status];
+};
+
+export const getConfirmationStatusText = (status: ConfirmationStatus): string => {
+  const texts: Record<ConfirmationStatus, string> = {
+    pending: '待确认',
+    confirmed: '已确认',
+    questioned: '有疑问',
+  };
+  return texts[status];
+};
+
+export const getConfirmationStatusColor = (status: ConfirmationStatus): string => {
+  const colors: Record<ConfirmationStatus, string> = {
+    pending: 'warning',
+    confirmed: 'success',
+    questioned: 'error',
   };
   return colors[status];
 };

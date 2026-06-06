@@ -275,7 +275,7 @@ ${api.request.headers.map((h) => `    '${h.name}': '${h.example}'`).join(',\n')}
           <Button icon={<ShareAltOutlined />} onClick={handleShare}>分享</Button>
           <Button icon={<HistoryOutlined />} onClick={() => navigate('/changes')}>变更</Button>
           <Button icon={<EditOutlined />} onClick={handleEdit}>编辑</Button>
-          <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => navigate(`/api/${api.id}/debug`)}>
+          <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => navigate(`/debug/${api.id}`)}>
             在线调试
           </Button>
         </Space>

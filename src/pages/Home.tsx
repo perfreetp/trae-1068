@@ -224,7 +224,7 @@ const Home = () => {
                       <div className="flex items-center gap-2 mb-1">
                         <Avatar src={submitter?.avatar} size={20} />
                         <span className="text-sm text-gray-600">{submitter?.name}</span>
-                        <Tag color={cr.status === 'approved' ? 'green' : cr.status === 'rejected' ? 'red' : 'warning'} size="small">
+                        <Tag color={cr.status === 'approved' ? 'green' : cr.status === 'rejected' ? 'red' : 'warning'} style={{ fontSize: 11, padding: '0 6px' }}>
                           {cr.status === 'approved' ? '已通过' : cr.status === 'rejected' ? '已拒绝' : '待评审'}
                         </Tag>
                       </div>

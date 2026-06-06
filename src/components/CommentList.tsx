@@ -47,7 +47,7 @@ const CommentList = ({ apiId }: CommentListProps) => {
   const getMember = (id: string) => members.find((m) => m.id === id);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" id="comments-section">
       <h3 className="text-lg font-semibold">评论讨论 ({comments.length})</h3>
       
       <List

@@ -7,18 +7,25 @@ export const mockChangeRecords: ChangeRecord[] = [
     version: 'v1.2.0',
     title: '登录接口增加图形验证码',
     description: '为了防止机器人攻击，登录接口增加图形验证码字段',
+    changeReason: '安全升级，防止暴力破解和机器人攻击',
     changes: [
       { field: 'request.body', oldValue: '无captcha字段', newValue: '新增captcha字段', type: 'add' },
       { field: 'description', oldValue: '用户通过手机号和密码登录', newValue: '用户通过手机号、密码和验证码登录', type: 'modify' },
     ],
     submitter: 'user-2',
     status: 'approved',
-    reviewers: ['user-1'],
+    reviewerId: 'user-1',
+    confirmations: [
+      { id: 'conf1', userId: 'user-3', status: 'confirmed', confirmedAt: '2024-06-01T15:30:00Z' },
+      { id: 'conf2', userId: 'user-4', status: 'pending' },
+    ],
     reviewComments: [
       { id: 'rc1', author: 'user-1', content: '变更合理，同意通过', createdAt: '2024-06-01T16:00:00Z' },
     ],
     createdAt: '2024-06-01T15:00:00Z',
     reviewedAt: '2024-06-01T16:00:00Z',
+    reviewedBy: 'user-1',
+    reviewNote: '变更合理，符合安全规范',
   },
   {
     id: 'cr-2',
@@ -26,12 +33,17 @@ export const mockChangeRecords: ChangeRecord[] = [
     version: 'v1.1.0',
     title: '订单列表增加搜索功能',
     description: '新增keyword参数，支持按订单号和商品名称搜索',
+    changeReason: '产品需求：运营需要快速定位特定订单',
     changes: [
       { field: 'request.query', oldValue: '无keyword字段', newValue: '新增keyword字段', type: 'add' },
     ],
     submitter: 'user-3',
     status: 'pending',
-    reviewers: ['user-1', 'user-2'],
+    reviewerId: 'user-1',
+    confirmations: [
+      { id: 'conf3', userId: 'user-2', status: 'pending' },
+      { id: 'conf4', userId: 'user-5', status: 'pending' },
+    ],
     createdAt: '2024-06-05T10:00:00Z',
   },
   {
@@ -40,17 +52,23 @@ export const mockChangeRecords: ChangeRecord[] = [
     version: 'v1.0.0',
     title: '创建订单接口初稿',
     description: '创建订单接口第一版，包含基本的商品和地址字段',
+    changeReason: '新功能开发：订单模块第一版上线',
     changes: [
       { field: '接口状态', oldValue: 'draft', newValue: 'developing', type: 'modify' },
     ],
     submitter: 'user-3',
     status: 'rejected',
-    reviewers: ['user-1'],
+    reviewerId: 'user-1',
+    confirmations: [
+      { id: 'conf5', userId: 'user-2', status: 'questioned', comment: '缺少优惠券计算逻辑', confirmedAt: '2024-06-03T11:00:00Z' },
+    ],
     reviewComments: [
       { id: 'rc2', author: 'user-1', content: '缺少优惠券字段，请补充后重新提交', createdAt: '2024-06-03T14:00:00Z' },
     ],
     createdAt: '2024-06-03T09:00:00Z',
     reviewedAt: '2024-06-03T14:00:00Z',
+    reviewedBy: 'user-1',
+    reviewNote: '缺少必要的优惠券和促销字段，需要补充完整',
   },
   {
     id: 'cr-4',
@@ -58,12 +76,16 @@ export const mockChangeRecords: ChangeRecord[] = [
     version: 'v1.0.0',
     title: '更新用户信息接口',
     description: '支持更新昵称、头像和邮箱',
+    changeReason: '用户中心迭代，支持个人资料编辑',
     changes: [
       { field: '接口状态', oldValue: 'draft', newValue: 'testing', type: 'modify' },
     ],
     submitter: 'user-2',
     status: 'pending',
-    reviewers: ['user-1'],
+    reviewerId: 'user-1',
+    confirmations: [
+      { id: 'conf6', userId: 'user-4', status: 'pending' },
+    ],
     createdAt: '2024-06-03T14:00:00Z',
   },
 ];

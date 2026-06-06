@@ -10,6 +10,7 @@ import TestCases from "@/pages/TestCases";
 import Changes from "@/pages/Changes";
 import Members from "@/pages/Members";
 import ErrorCodes from "@/pages/ErrorCodes";
+import Notifications from "@/pages/Notifications";
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
             <Route path="/debug/:id?" element={<Debug />} />
             <Route path="/test-cases" element={<TestCases />} />
             <Route path="/changes" element={<Changes />} />
+            <Route path="/notifications" element={<Notifications />} />
             <Route path="/members" element={<Members />} />
             <Route path="/error-codes" element={<ErrorCodes />} />
           </Routes>
