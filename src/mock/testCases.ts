@@ -1,0 +1,122 @@
+import { TestCase } from '@/types';
+
+export const mockTestCases: TestCase[] = [
+  {
+    id: 'tc-1',
+    name: '登录成功-正常场景',
+    apiId: 'api-1',
+    description: '使用正确的手机号和密码登录',
+    status: 'active',
+    request: {
+      headers: { 'Content-Type': 'application/json' },
+      query: {},
+      body: { phone: '13800138000', password: '123456' },
+    },
+    expected: {
+      statusCode: 200,
+      body: { code: 0 },
+      assertions: [
+        { id: 'a1', type: 'status', operator: 'equals', expected: '200' },
+        { id: 'a2', type: 'body', operator: 'contains', expected: 'token' },
+      ],
+    },
+    lastRunResult: 'passed',
+    lastRunAt: '2024-06-05T10:00:00Z',
+    creator: 'user-3',
+    createdAt: '2024-02-10T09:00:00Z',
+    updatedAt: '2024-06-05T10:00:00Z',
+  },
+  {
+    id: 'tc-2',
+    name: '登录失败-密码错误',
+    apiId: 'api-1',
+    description: '使用错误的密码登录',
+    status: 'active',
+    request: {
+      headers: { 'Content-Type': 'application/json' },
+      query: {},
+      body: { phone: '13800138000', password: 'wrongpassword' },
+    },
+    expected: {
+      statusCode: 400,
+      body: { code: 10001 },
+      assertions: [
+        { id: 'a1', type: 'status', operator: 'equals', expected: '400' },
+      ],
+    },
+    lastRunResult: 'passed',
+    lastRunAt: '2024-06-04T15:00:00Z',
+    creator: 'user-3',
+    createdAt: '2024-02-12T10:00:00Z',
+    updatedAt: '2024-06-04T15:00:00Z',
+  },
+  {
+    id: 'tc-3',
+    name: '获取订单列表-正常分页',
+    apiId: 'api-3',
+    description: '正常获取第一页订单列表',
+    status: 'active',
+    request: {
+      headers: { Authorization: 'Bearer token' },
+      query: { page: '1', pageSize: '20' },
+      body: {},
+    },
+    expected: {
+      statusCode: 200,
+      body: {},
+      assertions: [
+        { id: 'a1', type: 'status', operator: 'equals', expected: '200' },
+      ],
+    },
+    lastRunResult: 'failed',
+    lastRunAt: '2024-06-03T11:00:00Z',
+    creator: 'user-4',
+    createdAt: '2024-03-01T14:00:00Z',
+    updatedAt: '2024-06-03T11:00:00Z',
+  },
+  {
+    id: 'tc-4',
+    name: '获取用户信息-未授权',
+    apiId: 'api-2',
+    description: '不带 Token 请求用户信息',
+    status: 'active',
+    request: {
+      headers: {},
+      query: {},
+      body: {},
+    },
+    expected: {
+      statusCode: 401,
+      body: {},
+      assertions: [],
+    },
+    lastRunResult: 'passed',
+    lastRunAt: '2024-06-02T09:00:00Z',
+    creator: 'user-3',
+    createdAt: '2024-02-20T10:00:00Z',
+    updatedAt: '2024-06-02T09:00:00Z',
+  },
+  {
+    id: 'tc-5',
+    name: '创建订单-正常创建',
+    apiId: 'api-4',
+    description: '创建一个正常的订单',
+    status: 'inactive',
+    request: {
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token' },
+      query: {},
+      body: {
+        items: [{ skuId: 'sku-001', quantity: 1, price: 99 }],
+        addressId: 'addr-001',
+      },
+    },
+    expected: {
+      statusCode: 201,
+      body: {},
+      assertions: [],
+    },
+    creator: 'user-4',
+    createdAt: '2024-04-10T11:00:00Z',
+    updatedAt: '2024-05-15T16:00:00Z',
+  },
+];

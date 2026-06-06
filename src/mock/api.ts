@@ -1,0 +1,401 @@
+import { Api } from '@/types';
+
+const generateParam = (id: string, name: string, type: any, required: boolean, description: string, example: string, children?: any) => ({
+  id,
+  name,
+  type,
+  required,
+  description,
+  example,
+  children,
+});
+
+export const mockApis: Api[] = [
+  {
+    id: 'api-1',
+    name: '用户登录',
+    description: '用户通过手机号和密码登录系统',
+    method: 'POST',
+    path: '/api/auth/login',
+    moduleId: 'module-1-1',
+    status: 'completed',
+    creator: 'user-1',
+    owner: 'user-2',
+    tags: ['认证', '基础功能'],
+    isFavorite: true,
+    createdAt: '2024-01-20T10:00:00Z',
+    updatedAt: '2024-06-01T15:30:00Z',
+    request: {
+      headers: [
+        generateParam('h1', 'Content-Type', 'string', true, '请求类型', 'application/json'),
+      ],
+      query: [],
+      body: [
+        generateParam('b1', 'phone', 'string', true, '手机号', '13800138000'),
+        generateParam('b2', 'password', 'string', true, '密码', '123456'),
+        generateParam('b3', 'captcha', 'string', false, '图形验证码', 'AB12'),
+      ],
+    },
+    response: {
+      success: {
+        name: '登录成功',
+        statusCode: 200,
+        description: '登录成功返回用户信息和token',
+        data: {
+          code: 0,
+          message: 'success',
+          data: {
+            token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+            userInfo: {
+              id: 'user-1',
+              name: '张三',
+              phone: '13800138000',
+              avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=zhangsan',
+            },
+          },
+        },
+      },
+      error: [
+        {
+          name: '参数错误',
+          statusCode: 400,
+          description: '请求参数不合法',
+          data: { code: 10001, message: '手机号或密码错误' },
+        },
+        {
+          name: '账号锁定',
+          statusCode: 403,
+          description: '账号已被锁定',
+          data: { code: 10002, message: '账号已被锁定，请联系管理员' },
+        },
+      ],
+    },
+  },
+  {
+    id: 'api-2',
+    name: '获取用户信息',
+    description: '获取当前登录用户的详细信息',
+    method: 'GET',
+    path: '/api/user/info',
+    moduleId: 'module-1-2',
+    status: 'completed',
+    creator: 'user-1',
+    owner: 'user-2',
+    tags: ['用户信息'],
+    isFavorite: true,
+    createdAt: '2024-01-25T09:00:00Z',
+    updatedAt: '2024-05-20T14:00:00Z',
+    request: {
+      headers: [
+        generateParam('h1', 'Authorization', 'string', true, '用户认证Token', 'Bearer xxx'),
+      ],
+      query: [],
+      body: [],
+    },
+    response: {
+      success: {
+        name: '成功',
+        statusCode: 200,
+        description: '返回用户信息',
+        data: {
+          code: 0,
+          message: 'success',
+          data: {
+            id: 'user-1',
+            name: '张三',
+            phone: '13800138000',
+            email: 'zhangsan@example.com',
+            avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=zhangsan',
+            role: 'admin',
+            createdAt: '2024-01-15T09:00:00Z',
+          },
+        },
+      },
+      error: [
+        {
+          name: '未授权',
+          statusCode: 401,
+          description: 'Token无效或已过期',
+          data: { code: 10003, message: '请先登录' },
+        },
+      ],
+    },
+  },
+  {
+    id: 'api-3',
+    name: '获取订单列表',
+    description: '分页获取用户的订单列表',
+    method: 'GET',
+    path: '/api/orders',
+    moduleId: 'module-2-1',
+    status: 'testing',
+    creator: 'user-2',
+    owner: 'user-3',
+    tags: ['订单'],
+    isFavorite: false,
+    createdAt: '2024-02-10T11:00:00Z',
+    updatedAt: '2024-06-05T10:00:00Z',
+    request: {
+      headers: [
+        generateParam('h1', 'Authorization', 'string', true, '用户认证Token', 'Bearer xxx'),
+      ],
+      query: [
+        generateParam('q1', 'page', 'number', false, '页码，默认1', '1'),
+        generateParam('q2', 'pageSize', 'number', false, '每页数量，默认20', '20'),
+        generateParam('q3', 'status', 'string', false, '订单状态筛选', 'pending'),
+        generateParam('q4', 'keyword', 'string', false, '搜索关键词', ''),
+      ],
+      body: [],
+    },
+    response: {
+      success: {
+        name: '成功',
+        statusCode: 200,
+        description: '返回订单列表',
+        data: {
+          code: 0,
+          message: 'success',
+          data: {
+            list: [
+              {
+                id: 'order-1',
+                orderNo: 'ORD202406010001',
+                status: 'pending',
+                totalAmount: 299.00,
+                createTime: '2024-06-01T10:00:00Z',
+              },
+            ],
+            total: 100,
+            page: 1,
+            pageSize: 20,
+          },
+        },
+      },
+      error: [
+        {
+          name: '参数错误',
+          statusCode: 400,
+          description: '参数不合法',
+          data: { code: 20001, message: '参数错误' },
+        },
+      ],
+    },
+  },
+  {
+    id: 'api-4',
+    name: '创建订单',
+    description: '创建新订单',
+    method: 'POST',
+    path: '/api/orders',
+    moduleId: 'module-2-2',
+    status: 'developing',
+    creator: 'user-3',
+    owner: 'user-3',
+    tags: ['订单', '新增'],
+    isFavorite: false,
+    createdAt: '2024-03-01T09:00:00Z',
+    updatedAt: '2024-06-06T08:00:00Z',
+    request: {
+      headers: [
+        generateParam('h1', 'Authorization', 'string', true, '用户认证Token', 'Bearer xxx'),
+        generateParam('h2', 'Content-Type', 'string', true, '请求类型', 'application/json'),
+      ],
+      query: [],
+      body: [
+        generateParam('b1', 'items', 'array', true, '商品列表', '', [
+          generateParam('b1-1', 'skuId', 'string', true, '商品SKU ID', 'sku-001'),
+          generateParam('b1-2', 'quantity', 'number', true, '购买数量', '1'),
+          generateParam('b1-3', 'price', 'number', true, '单价', '99.00'),
+        ]),
+        generateParam('b2', 'addressId', 'string', true, '收货地址ID', 'addr-001'),
+        generateParam('b3', 'remark', 'string', false, '订单备注', '请尽快发货'),
+      ],
+    },
+    response: {
+      success: {
+        name: '创建成功',
+        statusCode: 201,
+        description: '订单创建成功',
+        data: {
+          code: 0,
+          message: 'success',
+          data: {
+            orderId: 'order-123',
+            orderNo: 'ORD202406060001',
+          },
+        },
+      },
+      error: [
+        {
+          name: '库存不足',
+          statusCode: 400,
+          description: '商品库存不足',
+          data: { code: 20002, message: '商品库存不足' },
+        },
+      ],
+    },
+  },
+  {
+    id: 'api-5',
+    name: '获取商品详情',
+    description: '根据商品ID获取商品详细信息',
+    method: 'GET',
+    path: '/api/products/:id',
+    moduleId: 'module-3-1',
+    status: 'completed',
+    creator: 'user-4',
+    owner: 'user-4',
+    tags: ['商品'],
+    isFavorite: true,
+    createdAt: '2024-02-15T14:00:00Z',
+    updatedAt: '2024-05-10T16:00:00Z',
+    request: {
+      headers: [],
+      query: [],
+      body: [],
+    },
+    response: {
+      success: {
+        name: '成功',
+        statusCode: 200,
+        description: '返回商品详情',
+        data: {
+          code: 0,
+          message: 'success',
+          data: {
+            id: 'prod-001',
+            name: '示例商品',
+            description: '这是一个示例商品',
+            price: 99.00,
+            originalPrice: 199.00,
+            stock: 100,
+            images: ['https://example.com/img1.jpg', 'https://example.com/img2.jpg'],
+            category: { id: 'cat-1', name: '数码产品' },
+          },
+        },
+      },
+      error: [
+        {
+          name: '商品不存在',
+          statusCode: 404,
+          description: '商品不存在或已下架',
+          data: { code: 30001, message: '商品不存在' },
+        },
+      ],
+    },
+  },
+  {
+    id: 'api-6',
+    name: '用户注册',
+    description: '新用户注册账号',
+    method: 'POST',
+    path: '/api/auth/register',
+    moduleId: 'module-1-1',
+    status: 'draft',
+    creator: 'user-2',
+    owner: 'user-2',
+    tags: ['认证', '注册'],
+    isFavorite: false,
+    createdAt: '2024-04-01T10:00:00Z',
+    updatedAt: '2024-04-15T11:00:00Z',
+    request: {
+      headers: [
+        generateParam('h1', 'Content-Type', 'string', true, '请求类型', 'application/json'),
+      ],
+      query: [],
+      body: [
+        generateParam('b1', 'phone', 'string', true, '手机号', '13800138000'),
+        generateParam('b2', 'password', 'string', true, '密码', '123456'),
+        generateParam('b3', 'verifyCode', 'string', true, '短信验证码', '123456'),
+        generateParam('b4', 'inviteCode', 'string', false, '邀请码', 'INVITE001'),
+      ],
+    },
+    response: {
+      success: {
+        name: '注册成功',
+        statusCode: 201,
+        description: '注册成功',
+        data: {
+          code: 0,
+          message: 'success',
+          data: { userId: 'user-123' },
+        },
+      },
+      error: [
+        {
+          name: '手机号已存在',
+          statusCode: 400,
+          description: '手机号已被注册',
+          data: { code: 10004, message: '手机号已被注册' },
+        },
+      ],
+    },
+  },
+  {
+    id: 'api-7',
+    name: '删除商品',
+    description: '删除指定商品',
+    method: 'DELETE',
+    path: '/api/products/:id',
+    moduleId: 'module-3-2',
+    status: 'deprecated',
+    creator: 'user-4',
+    owner: 'user-4',
+    tags: ['商品', '删除'],
+    isFavorite: false,
+    createdAt: '2024-01-10T09:00:00Z',
+    updatedAt: '2024-03-20T10:00:00Z',
+    request: {
+      headers: [
+        generateParam('h1', 'Authorization', 'string', true, '管理员Token', 'Bearer xxx'),
+      ],
+      query: [],
+      body: [],
+    },
+    response: {
+      success: {
+        name: '删除成功',
+        statusCode: 200,
+        description: '商品删除成功',
+        data: { code: 0, message: 'success' },
+      },
+      error: [],
+    },
+  },
+  {
+    id: 'api-8',
+    name: '更新用户信息',
+    description: '更新当前登录用户的信息',
+    method: 'PUT',
+    path: '/api/user/info',
+    moduleId: 'module-1-2',
+    status: 'testing',
+    creator: 'user-2',
+    owner: 'user-2',
+    tags: ['用户信息', '更新'],
+    isFavorite: false,
+    createdAt: '2024-03-15T14:00:00Z',
+    updatedAt: '2024-06-03T09:00:00Z',
+    request: {
+      headers: [
+        generateParam('h1', 'Authorization', 'string', true, '用户Token', 'Bearer xxx'),
+        generateParam('h2', 'Content-Type', 'string', true, '请求类型', 'application/json'),
+      ],
+      query: [],
+      body: [
+        generateParam('b1', 'nickname', 'string', false, '昵称', '新昵称'),
+        generateParam('b2', 'avatar', 'string', false, '头像URL', 'https://example.com/avatar.jpg'),
+        generateParam('b3', 'email', 'string', false, '邮箱', 'new@example.com'),
+      ],
+    },
+    response: {
+      success: {
+        name: '更新成功',
+        statusCode: 200,
+        description: '用户信息更新成功',
+        data: { code: 0, message: 'success' },
+      },
+      error: [],
+    },
+  },
+];
