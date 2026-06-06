@@ -17,6 +17,8 @@ import {
   Form,
   Popconfirm,
   Tooltip,
+  Avatar,
+  Switch,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -28,13 +30,21 @@ import {
   SendOutlined,
   FolderOpenOutlined,
   EditOutlined,
+  TeamOutlined,
+  UserOutlined,
+  ShareAltOutlined,
+  GlobalOutlined,
+  SettingOutlined,
+  CheckCircleOutlined,
+  EnvironmentOutlined,
 } from '@ant-design/icons';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useApiStore } from '@/store/apiStore';
+import { useUserStore } from '@/store/userStore';
 import { ApiMethodTag } from '@/components/ApiMethodTag';
 import { copyToClipboard, formatRelativeTime, getMethodBgColor, getMethodColor } from '@/utils/helpers';
-import { HttpMethod, DebugPreset } from '@/types';
+import { HttpMethod, DebugPreset, DebugEnvironment } from '@/types';
 import type { ColumnsType } from 'antd/es/table';
 
 const { TextArea } = Input;
@@ -50,11 +60,30 @@ interface KeyValuePair {
 const Debug = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getApiById, debugHistory, addDebugHistory, getDebugPresetsByApiId, addDebugPreset, deleteDebugPreset, apis } = useApiStore();
+  const {
+    getApiById,
+    debugHistory,
+    addDebugHistory,
+    getDebugPresetsByApiId,
+    addDebugPreset,
+    deleteDebugPreset,
+    apis,
+    environments,
+    getCurrentEnvironment,
+    setSelectedEnvironmentId,
+    updateEnvironment,
+    sharePreset,
+    copyPreset,
+    getMyDebugPresets,
+    getSharedPresets,
+  } = useApiStore();
+  const { currentUser, getMemberById } = useUserStore();
 
   const api = useMemo(() => (id ? getApiById(id) : undefined), [id, getApiById]);
-  const presets = useMemo(() => (id ? getDebugPresetsByApiId(id) : []), [id, getDebugPresetsByApiId]);
-  
+  const currentEnv = useMemo(() => getCurrentEnvironment(), [getCurrentEnvironment]);
+  const myPresets = useMemo(() => (id ? getMyDebugPresets(id, currentUser?.id || '') : []), [id, getMyDebugPresets, currentUser]);
+  const sharedPresets = useMemo(() => (id ? getSharedPresets(id) : []), [id, getSharedPresets]);
+
   const [selectedApiId, setSelectedApiId] = useState<string>(id || '');
   const [method, setMethod] = useState<HttpMethod>('GET');
   const [url, setUrl] = useState('');
@@ -63,6 +92,9 @@ const Debug = () => {
   const [responseTime, setResponseTime] = useState(0);
   const [saveModalVisible, setSaveModalVisible] = useState(false);
   const [presetName, setPresetName] = useState('');
+  const [envModalVisible, setEnvModalVisible] = useState(false);
+  const [editingEnv, setEditingEnv] = useState<DebugEnvironment | null>(null);
+  const [envForm] = Form.useForm();
   const [form] = Form.useForm();
 
   const [headers, setHeaders] = useState<KeyValuePair[]>([{ id: 'h0', key: '', value: '', enabled: true }]);
@@ -74,20 +106,20 @@ const Debug = () => {
   useEffect(() => {
     if (api) {
       setMethod(api.method);
-      setUrl(`https://api.example.com${api.path}`);
+      updateUrlWithEnv(currentEnv, api.path);
       setSelectedApiId(api.id);
-      
-      if (api.request.headers.length > 0) {
-        setHeaders(
-          api.request.headers.map((h, i) => ({
-            id: `h${i}`,
-            key: h.name,
-            value: h.example,
-            enabled: true,
-          }))
-        );
-      }
-      
+
+      const allHeaders: KeyValuePair[] = [];
+      currentEnv?.headers
+        .filter((h) => h.enabled && h.key)
+        .forEach((h, i) => {
+          allHeaders.push({ id: `henv${i}`, key: h.key, value: h.value, enabled: true });
+        });
+      api.request.headers.forEach((h, i) => {
+        allHeaders.push({ id: `hapi${i}`, key: h.name, value: h.example, enabled: true });
+      });
+      if (allHeaders.length > 0) setHeaders(allHeaders);
+
       if (api.request.query.length > 0) {
         setQueryParams(
           api.request.query.map((q, i) => ({
@@ -98,7 +130,7 @@ const Debug = () => {
           }))
         );
       }
-      
+
       if (api.request.body.length > 0) {
         const obj: Record<string, any> = {};
         api.request.body.forEach((p) => {
@@ -108,7 +140,29 @@ const Debug = () => {
         setBodyTab('json');
       }
     }
-  }, [api]);
+  }, [api, currentEnv]);
+
+  const updateUrlWithEnv = (env: DebugEnvironment | undefined, path: string) => {
+    const base = env?.baseUrl || 'https://api.example.com';
+    setUrl(`${base}${path}`);
+  };
+
+  const handleEnvChange = (envId: string) => {
+    setSelectedEnvironmentId(envId);
+    const env = environments.find((e) => e.id === envId);
+    if (api && env) {
+      updateUrlWithEnv(env, api.path);
+      const newHeaders: KeyValuePair[] = [];
+      env.headers.filter((h) => h.enabled && h.key).forEach((h, i) => {
+        newHeaders.push({ id: `henv${i}-${Date.now()}`, key: h.key, value: h.value, enabled: true });
+      });
+      api.request.headers.forEach((h, i) => {
+        newHeaders.push({ id: `hapi${i}-${Date.now()}`, key: h.name, value: h.example, enabled: true });
+      });
+      if (newHeaders.length > 0) setHeaders(newHeaders);
+    }
+    message.success(`已切换到 ${env?.name} 环境`);
+  };
 
   const handleApiChange = (apiId: string) => {
     const selectedApi = getApiById(apiId);
@@ -195,15 +249,16 @@ const Debug = () => {
   const handleSend = async () => {
     setLoading(true);
     const startTime = Date.now();
-    
+
     await new Promise((resolve) => setTimeout(resolve, 800 + Math.random() * 500));
-    
+
     const mockResponse = {
       status: 200,
       statusText: 'OK',
       headers: {
         'content-type': 'application/json',
         'x-request-id': 'req-' + Date.now(),
+        'x-env': currentEnv?.name || 'default',
       },
       data: api?.response.success.data || {
         code: 0,
@@ -211,7 +266,7 @@ const Debug = () => {
         data: { id: 1, name: 'Mock Data' },
       },
     };
-    
+
     setResponse(mockResponse);
     setResponseTime(Date.now() - startTime);
     setLoading(false);
@@ -247,12 +302,12 @@ const Debug = () => {
         queryParams: queryParams.map((q) => ({ key: q.key, value: q.value, enabled: q.enabled })),
         bodyJson,
         formData: formData.map((f) => ({ key: f.key, value: f.value, enabled: f.enabled })),
-        ownerId: 'user-1',
+        ownerId: currentUser?.id || 'user-1',
         isShared: false,
       });
       setSaveModalVisible(false);
       setPresetName('');
-      message.success('方案已保存');
+      message.success('方案已保存到"我的方案"');
     } else {
       message.warning('请先选择接口');
     }
@@ -274,11 +329,46 @@ const Debug = () => {
     message.success('方案已删除');
   };
 
+  const handleSharePreset = (id: string, isShared: boolean) => {
+    sharePreset(id, isShared);
+    message.success(isShared ? '已分享到团队方案' : '已取消分享');
+  };
+
+  const handleCopyPreset = (preset: DebugPreset) => {
+    const newId = copyPreset(preset, currentUser?.id || 'user-1');
+    if (newId) {
+      message.success('已复制到我的方案');
+    }
+  };
+
   const handleCopyResponse = async () => {
     if (response) {
       const success = await copyToClipboard(JSON.stringify(response.data, null, 2));
       if (success) message.success('已复制响应数据');
     }
+  };
+
+  const handleEditEnv = (env: DebugEnvironment) => {
+    setEditingEnv(env);
+    envForm.setFieldsValue({
+      name: env.name,
+      baseUrl: env.baseUrl,
+    });
+    setEnvModalVisible(true);
+  };
+
+  const handleSaveEnv = () => {
+    envForm.validateFields().then((values) => {
+      if (editingEnv) {
+        updateEnvironment(editingEnv.id, {
+          name: values.name,
+          baseUrl: values.baseUrl,
+        });
+        message.success('环境配置已保存');
+        setEnvModalVisible(false);
+        setEditingEnv(null);
+      }
+    });
   };
 
   const historyItems = debugHistory.filter((h) => h.apiId === selectedApiId);
@@ -298,7 +388,27 @@ const Debug = () => {
             </div>
           </div>
         </div>
-        <Space>
+        <Space wrap>
+          <Space wrap>
+            <EnvironmentOutlined className="text-gray-500" />
+            <Select
+              value={currentEnv?.id}
+              onChange={handleEnvChange}
+              style={{ width: 140 }}
+              size="small"
+              suffixIcon={<GlobalOutlined />}
+            >
+              {environments.map((env) => (
+                <Option key={env.id} value={env.id}>
+                  <span className="flex items-center justify-between w-full gap-2">
+                    <span>{env.name}</span>
+                    {env.isDefault && <Tag color="blue" style={{ fontSize: 10, padding: '0 4px', margin: 0 }}>默认</Tag>}
+                  </span>
+                </Option>
+              ))}
+            </Select>
+            <Button type="text" size="small" icon={<SettingOutlined />} onClick={() => handleEditEnv(currentEnv!)} />
+          </Space>
           <Select
             value={selectedApiId}
             onChange={handleApiChange}
@@ -349,6 +459,7 @@ const Debug = () => {
                 size="large"
                 placeholder="请求 URL"
                 className="flex-1"
+                prefix={<Tag color="purple" style={{ fontSize: 10, margin: 0 }}>{currentEnv?.name}</Tag>}
               />
             </div>
           </Card>
@@ -358,7 +469,7 @@ const Debug = () => {
               items={[
                 {
                   key: 'headers',
-                  label: `Headers`,
+                  label: `Headers ${currentEnv?.headers.filter((h) => h.enabled && h.key).length > 0 ? `(含公共${currentEnv?.headers.filter((h) => h.enabled && h.key).length}个)` : ''}`,
                   children: (
                     <div className="p-4">
                       <Table
@@ -537,10 +648,18 @@ const Debug = () => {
         </div>
 
         <div className="col-span-4 space-y-4">
-          <Card size="small" title={<span className="flex items-center gap-2"><FolderOpenOutlined />调试方案</span>} extra={<Button type="link" size="small" icon={<PlusOutlined />} onClick={() => setSaveModalVisible(true)}>新建</Button>}>
-            {presets.length > 0 ? (
-              <div className="space-y-2 max-h-64 overflow-auto">
-                {presets.map((p) => (
+          <Card
+            size="small"
+            title={
+              <div className="flex items-center gap-2">
+                <UserOutlined /> 我的方案 ({myPresets.length})
+              </div>
+            }
+            extra={<Button type="link" size="small" icon={<PlusOutlined />} onClick={() => setSaveModalVisible(true)}>新建</Button>}
+          >
+            {myPresets.length > 0 ? (
+              <div className="space-y-2 max-h-56 overflow-auto">
+                {myPresets.map((p) => (
                   <div key={p.id} className="p-2 rounded hover:bg-gray-50 border">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -551,11 +670,29 @@ const Debug = () => {
                           {p.method}
                         </Tag>
                         <span className="text-sm font-medium truncate flex-1">{p.name}</span>
+                        {p.isShared && (
+                          <Tooltip title="已分享到团队">
+                            <TeamOutlined className="text-blue-500 text-xs" />
+                          </Tooltip>
+                        )}
                       </div>
                       <Space size="small">
                         <Tooltip title="加载方案">
                           <Button type="text" size="small" icon={<PlayCircleOutlined />} onClick={() => handleLoadPreset(p)} />
                         </Tooltip>
+                        <Popconfirm
+                          title={p.isShared ? '取消分享到团队？' : '分享给项目成员？'}
+                          onConfirm={() => handleSharePreset(p.id, !p.isShared)}
+                        >
+                          <Tooltip title={p.isShared ? '取消分享' : '分享给团队'}>
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<ShareAltOutlined />}
+                              style={{ color: p.isShared ? '#1890ff' : undefined }}
+                            />
+                          </Tooltip>
+                        </Popconfirm>
                         <Popconfirm title="确定删除此方案？" onConfirm={() => handleDeletePreset(p.id)}>
                           <Button type="text" size="small" danger icon={<DeleteOutlined />} />
                         </Popconfirm>
@@ -566,13 +703,62 @@ const Debug = () => {
                 ))}
               </div>
             ) : (
-              <Empty description="暂无保存的方案" image={Empty.PRESENTED_IMAGE_SIMPLE} className="py-4" />
+              <Empty description="暂无我的方案" image={Empty.PRESENTED_IMAGE_SIMPLE} className="py-4" />
+            )}
+          </Card>
+
+          <Card
+            size="small"
+            title={
+              <div className="flex items-center gap-2">
+                <TeamOutlined /> 团队方案 ({sharedPresets.length})
+              </div>
+            }
+          >
+            {sharedPresets.length > 0 ? (
+              <div className="space-y-2 max-h-56 overflow-auto">
+                {sharedPresets.map((p) => {
+                  const owner = getMemberById(p.ownerId);
+                  return (
+                    <div key={p.id} className="p-2 rounded hover:bg-gray-50 border bg-blue-50/30">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Tag
+                            color={getMethodColor(p.method)}
+                            style={{ backgroundColor: getMethodBgColor(p.method), border: 'none', fontSize: 10, padding: '0 4px', margin: 0 }}
+                          >
+                            {p.method}
+                          </Tag>
+                          <span className="text-sm font-medium truncate flex-1">{p.name}</span>
+                        </div>
+                        <Space size="small">
+                          <Tooltip title="加载方案">
+                            <Button type="text" size="small" icon={<PlayCircleOutlined />} onClick={() => handleLoadPreset(p)} />
+                          </Tooltip>
+                          <Tooltip title="复制为我的方案">
+                            <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => handleCopyPreset(p)} />
+                          </Tooltip>
+                        </Space>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-400 mt-1">
+                        <span className="flex items-center gap-1">
+                          <Avatar size={14} src={owner?.avatar} icon={<UserOutlined />} />
+                          {owner?.name}
+                        </span>
+                        <span>{formatRelativeTime(p.updatedAt)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <Empty description="暂无团队共享方案" image={Empty.PRESENTED_IMAGE_SIMPLE} className="py-4" />
             )}
           </Card>
 
           <Card size="small" title="历史记录">
             {historyItems.length > 0 ? (
-              <div className="space-y-2 max-h-[400px] overflow-auto">
+              <div className="space-y-2 max-h-[300px] overflow-auto">
                 {historyItems.map((h) => (
                   <div
                     key={h.id}
@@ -620,7 +806,7 @@ const Debug = () => {
         onCancel={() => setSaveModalVisible(false)}
         footer={[
           <Button key="cancel" onClick={() => setSaveModalVisible(false)}>取消</Button>,
-          <Button key="save" type="primary" onClick={handleSavePreset}>保存</Button>,
+          <Button key="save" type="primary" onClick={handleSavePreset}>保存到我的方案</Button>,
         ]}
       >
         <Form form={form} layout="vertical">
@@ -631,6 +817,36 @@ const Debug = () => {
               placeholder="请输入方案名称"
             />
           </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="环境配置"
+        open={envModalVisible}
+        onCancel={() => setEnvModalVisible(false)}
+        onOk={handleSaveEnv}
+        width={600}
+      >
+        <Form form={envForm} layout="vertical">
+          <Form.Item name="name" label="环境名称" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="baseUrl" label="Base URL" rules={[{ required: true }]}>
+            <Input placeholder="https://api.example.com" />
+          </Form.Item>
+          <div>
+            <div className="text-sm font-medium mb-2">公共请求头</div>
+            <div className="space-y-2">
+              {editingEnv?.headers.map((h, i) => (
+                <div key={i} className="flex gap-2">
+                  <Switch size="small" checked={h.enabled} />
+                  <Input size="small" value={h.key} style={{ width: 120 }} placeholder="Key" />
+                  <Input size="small" value={h.value} className="flex-1" placeholder="Value" />
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 mt-2">公共 Header 会在切换环境时自动带入请求中</p>
+          </div>
         </Form>
       </Modal>
     </div>

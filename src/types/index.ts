@@ -189,7 +189,9 @@ export interface Comment {
   apiId: string;
   content: string;
   author: string;
+  userId: string;
   mentions: string[];
+  mentionedUserIds: string[];
   replyTo?: string;
   parentId?: string;
   createdAt: string;
@@ -266,6 +268,7 @@ export interface Notification {
   relatedId: string;
   relatedType: 'api' | 'change' | 'comment';
   senderId?: string;
+  commentId?: string;
   createdAt: string;
   readAt?: string;
 }

@@ -161,7 +161,9 @@ const Notifications = () => {
     if (record.relatedType === 'change') {
       navigate(`/changes?changeId=${record.relatedId}`);
     } else if (record.relatedType === 'api') {
-      if (record.type === 'mention') {
+      if (record.type === 'mention' && record.commentId) {
+        navigate(`/api/${record.relatedId}?commentId=${record.commentId}&notificationId=${record.id}#comments-section`);
+      } else if (record.type === 'mention') {
         navigate(`/api/${record.relatedId}#comments-section`);
       } else {
         navigate(`/api/${record.relatedId}`);

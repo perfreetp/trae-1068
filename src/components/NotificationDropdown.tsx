@@ -57,7 +57,9 @@ const NotificationDropdown = ({ children }: NotificationDropdownProps) => {
     if (notification.relatedType === 'change') {
       navigate(`/changes?changeId=${notification.relatedId}`);
     } else if (notification.relatedType === 'api') {
-      if (notification.type === 'mention') {
+      if (notification.type === 'mention' && notification.commentId) {
+        navigate(`/api/${notification.relatedId}?commentId=${notification.commentId}&notificationId=${notification.id}#comments-section`);
+      } else if (notification.type === 'mention') {
         navigate(`/api/${notification.relatedId}#comments-section`);
       } else {
         navigate(`/api/${notification.relatedId}`);

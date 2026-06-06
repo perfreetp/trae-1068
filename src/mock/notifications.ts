@@ -35,6 +35,7 @@ export const mockNotifications: Notification[] = [
     relatedId: 'api-2',
     relatedType: 'api',
     senderId: 'user-1',
+    commentId: 'c1',
     createdAt: '2024-06-04T09:15:00Z',
   },
   {
@@ -85,6 +86,7 @@ export const mockNotifications: Notification[] = [
     relatedId: 'api-3',
     relatedType: 'api',
     senderId: 'user-2',
+    commentId: 'c2',
     createdAt: '2024-05-30T10:00:00Z',
     readAt: '2024-05-30T10:30:00Z',
   },

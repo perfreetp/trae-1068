@@ -47,6 +47,7 @@ interface ApiStore {
   
   toggleFavorite: (apiId: string) => void;
   addComment: (comment: Omit<Comment, 'id' | 'createdAt'>) => void;
+  addApiComment: (comment: Omit<Comment, 'id' | 'createdAt'>) => void;
   addDebugHistory: (item: Omit<DebugHistory, 'id' | 'createdAt'>) => void;
   getFilteredApis: () => Api[];
   
@@ -174,18 +175,55 @@ export const useApiStore = create<ApiStore>()(
           comments: [...state.comments, newComment],
         }));
         
-        if (comment.mentions && comment.mentions.length > 0) {
+        const mentionedUsers = comment.mentions || comment.mentionedUserIds || [];
+        if (mentionedUsers.length > 0) {
           const api = get().getApiById(comment.apiId);
-          comment.mentions.forEach((userId) => {
+          const senderName = comment.author || comment.userId || '有人';
+          mentionedUsers.forEach((userId) => {
             get().addNotification({
               type: 'mention',
               title: '有人在评论中 @ 了您',
-              content: `${comment.author} 在【${api?.name || '接口'}】评论中提到了您`,
+              content: `${senderName} 在【${api?.name || '接口'}】评论中提到了您`,
               read: false,
               userId,
               relatedId: comment.apiId,
               relatedType: 'api',
-              senderId: comment.author,
+              senderId: comment.author || comment.userId,
+              commentId: newComment.id,
+            });
+          });
+        }
+      },
+
+      addApiComment: (comment) => {
+        const newComment = {
+          ...comment,
+          id: `c${Date.now()}`,
+          createdAt: new Date().toISOString(),
+          author: comment.userId || comment.author || '',
+          userId: comment.userId || comment.author || '',
+          mentions: comment.mentionedUserIds || comment.mentions || [],
+          mentionedUserIds: comment.mentionedUserIds || comment.mentions || [],
+        };
+        set((state) => ({
+          comments: [...state.comments, newComment],
+        }));
+        
+        const mentionedUsers = newComment.mentionedUserIds;
+        if (mentionedUsers.length > 0) {
+          const api = get().getApiById(comment.apiId);
+          const senderName = newComment.author || '有人';
+          mentionedUsers.forEach((userId) => {
+            get().addNotification({
+              type: 'mention',
+              title: '有人在评论中 @ 了您',
+              content: `${senderName} 在【${api?.name || '接口'}】评论中提到了您`,
+              read: false,
+              userId,
+              relatedId: comment.apiId,
+              relatedType: 'api',
+              senderId: newComment.userId,
+              commentId: newComment.id,
             });
           });
         }
